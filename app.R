@@ -11,6 +11,8 @@ library(leaflet)
 library(tidycensus)
 library(RColorBrewer)
 library(forcats)
+library(viridis)
+library(mapview)
 
 # load data
 mpv_data <- read_csv("geocodedMPVDataset.csv")
@@ -33,6 +35,14 @@ mpv_data <- filter(mpv_data, !is.na(lon) & !is.na(lat))
 
 ## UI ------------------------------------------------------------------
 
+# Choices for drop-downs
+vars <- c(
+  "none" = "none",
+  "race (victim)" = "Victim's race",
+  "age (victim)" = "Victim's age band",
+  "gender (victim)" = "Victim's gender"
+)
+
 # make a navigation bar, set params
 ui <- navbarPage("polMonitor", theme = shinytheme("cosmo"),
                  tabPanel("dot map",
@@ -48,10 +58,12 @@ ui <- navbarPage("polMonitor", theme = shinytheme("cosmo"),
                                         top = 100, right = 20, left = "auto", bottom = "auto",
                                         draggable = TRUE, width = "auto", height = "auto",
                                         # map's date range 
-                                        dateRangeInput("dates", label = "occurred between:",
+                                        dateRangeInput(inputId="dates", label="occurred between:",
                                                        start = min(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        end = max(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
-                                                       format = "d M yyyy", startview = "year")
+                                                       format = "d M yyyy", startview = "year"),
+                                        selectInput(inputId="colour", label="colour", choices=vars,
+                                                    selected=NULL, multiple=FALSE)
                           )
                           )
                  )
@@ -77,10 +89,32 @@ server <- function(input, output, session) {
   # observer to update map options selected
   observe({
     
+    colourBy <- input$colour
+    
+    popup <- paste(sep = "<br/>", 
+                   paste0("<img src='", mpv_data$`URL of image of victim`, "'  />"), 
+                   paste0("<b>name: </b>", mpv_data$`Victim's name`))
+    
+    if (input$colour == "none") {
+    
     leafletProxy("dot_map", data = filtered_data()) %>%
       clearShapes() %>%
       addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color="#DC143C", fillColor = "#DC143C",
-                 popup= ~address)
+                 layerId=~mpv_data, popup= ~popup)
+      
+    } else {
+      
+      colourData <- mpv_data[[colourBy]]
+      pal <- colorFactor("viridis", colourData)
+      
+      leafletProxy("dot_map", data = filtered_data()) %>%
+        clearShapes() %>%
+        addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color=pal(colourData), 
+                   fillColor = pal(colourData), popup= ~popup, layerId=~mpv_data) %>%
+        addLegend("bottomleft", pal=pal, values=colourData, title=colourBy,
+                  layerId="colourLegend")
+      
+    }
     
   })
   

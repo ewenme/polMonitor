@@ -2,6 +2,7 @@
 
 require(readxl)
 require(stringr)
+require(ggmap)
 
 # download latest data
 url <- "http://mappingpoliceviolence.org/s/MPVDatasetDownload-9pyl.xlsx"
@@ -29,7 +30,7 @@ deaths$address_searchable <- str_replace_all(deaths$address, " ", "%20")
 deaths$address_searchable <- str_replace_all(deaths$address_searchable, "&", "%26")
 
 # # get lat/lon for records 
-# addressesA <- lapply(deaths$address[1:2500], geocode, output="latlon")
+# addressesA <- lapply(deaths$address_searchable[1:2500], geocode, output="latlon")
 # addressesB <- lapply(deaths$address[2501:5000], geocode, output="latlon")
 # addressesC <- lapply(deaths$address[5001:length(deaths$address)], geocode, output="latlon")
 
