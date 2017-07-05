@@ -12,10 +12,68 @@ library(tidycensus)
 library(RColorBrewer)
 library(forcats)
 library(viridis)
-library(mapview)
+library(tigris)
 
-# load data
+# tidycensus key
+census_api_key("52dcc3442f47b4e138450637ce5dadb9f444f50c")
+
+options(tigris_use_cache = TRUE)
+
+# LOAD ----------------------------------------------------------------
+
+# load state census data
+pops <- get_decennial(year = 2010, variables = c("P0050003"),
+              geography = "STATE", summary_var = "P0010001") %>%
+  select(-value) %>%
+  rename(population=summary_value)
+
+#load state shapefile
+states <- states()
+
+# join them
+states <- geo_join(spatial_data = states, data_frame = pops, by="GEOID")
+
+# convert to sf
+states <- st_as_sf(states)
+
+# load deaths data
 mpv_data <- read_csv("geocodedMPVDataset.csv")
+
+# test sf chloropeth
+test <- mpv_data %>%
+  group_by(`Location of death (state)`) %>%
+  summarise(death_count=n()) %>%
+  complete(`Location of death (state)`, fill = list(death_count = 0)) %>%
+  right_join(states, by=c("Location of death (state)"="STUSPS")) %>%
+  mutate(death_per_mil=death_count/population*1000000) %>%
+  filter(!is.na(death_count)) %>%
+  st_as_sf()
+
+pal <- colorQuantile(palette = "magma", domain = test$death_per_mil, n = 5)
+
+test %>%
+  st_transform(crs = "+init=epsg:4326") %>%
+  leaflet(width = "100%") %>%
+  addProviderTiles("CartoDB.DarkMatter") %>%
+  addPolygons(fillOpacity = 0.7,
+              dashArray = "3",
+              color = "white",
+              weight = 1.5,
+              fillColor = ~ pal(death_per_mil),
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE)) %>%
+  addLegend("bottomright", 
+            pal = pal, 
+            values = ~ death_per_mil,
+            title = "Deaths per million population",
+            opacity = 1)
+
+
+# CLEAN ----------------------------------------------------------------
 
 # to remove
 mpv_data$`Victim's age band` <- cut(as.numeric(mpv_data$`Victim's age`),
@@ -44,8 +102,9 @@ vars <- c(
 )
 
 # make a navigation bar, set params
-ui <- navbarPage("polMonitor", theme = shinytheme("cosmo"),
-                 tabPanel("dot map",
+ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
+                 
+                 tabPanel(shinyjs::useShinyjs(), title="dot map",
                           div(class="outer",
                           tags$head(
                             # Include our custom CSS
@@ -56,14 +115,30 @@ ui <- navbarPage("polMonitor", theme = shinytheme("cosmo"),
                           # inset panel for map output options
                           absolutePanel(id="controls", class = "panel panel-default",
                                         top = 100, right = 20, left = "auto", bottom = "auto",
-                                        draggable = TRUE, width = "auto", height = "auto",
+                                        draggable = TRUE, width = "350px", height = "auto",
                                         # map's date range 
                                         dateRangeInput(inputId="dates", label="occurred between:",
                                                        start = min(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        end = max(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        format = "d M yyyy", startview = "year"),
                                         selectInput(inputId="colour", label="colour", choices=vars,
-                                                    selected=NULL, multiple=FALSE)
+                                                    selected=NULL, multiple=FALSE),
+                                        a(id = "toggleFilters", "Show/hide filters", href = "#"),
+                                        shinyjs::hidden(div(id="filters",
+                                        checkboxGroupInput(inputId="race", label="race (victim)",
+                                                           choices=levels(mpv_data$`Victim's race`),
+                                                           selected=levels(mpv_data$`Victim's race`),
+                                                           inline = TRUE, width = "auto"),
+                                        checkboxGroupInput(inputId="gender", label="gender (victim)",
+                                                           choices=levels(mpv_data$`Victim's gender`),
+                                                           selected=levels(mpv_data$`Victim's gender`),
+                                                           inline = TRUE, width = "auto"),
+                                        checkboxGroupInput(inputId="age", label="age (victim)",
+                                                           choices=levels(mpv_data$`Victim's age band`),
+                                                           selected=levels(mpv_data$`Victim's age band`),
+                                                           inline = TRUE, width = "auto")
+                                        )
+                                        )
                           )
                           )
                  )
@@ -76,14 +151,24 @@ server <- function(input, output, session) {
   
   # Reactive expression for the data subsetted to what dates the user selected
   filtered_data <- reactive({
-    mpv_data[mpv_data$`Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
-               mpv_data$`Date of injury resulting in death (month/day/year)` <= input$dates[2],]
+    # mpv_data[mpv_data$`Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
+    #            mpv_data$`Date of injury resulting in death (month/day/year)` <= input$dates[2],]
+    subset(mpv_data, `Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
+             `Date of injury resulting in death (month/day/year)` <= input$dates[2] & 
+             `Victim's race` %in% input$race & `Victim's gender` %in% input$gender & 
+             `Victim's age band` %in% input$age)
+  })
+  
+  observe({
+    shinyjs::onclick("toggleFilters",
+                     shinyjs::toggle(id = "filters", anim = TRUE)) 
   })
    
   # create map output, define params that won't change dynamically 
   output$dot_map <- renderLeaflet({
     
-    leaflet(mpv_data) %>% addProviderTiles("CartoDB.DarkMatter")
+    leaflet(mpv_data) %>% addProviderTiles("CartoDB.DarkMatter") %>%
+      setView(lng = -93.85, lat = 37.45, zoom = 3)
   })
   
   # observer to update map options selected
@@ -92,8 +177,10 @@ server <- function(input, output, session) {
     colourBy <- input$colour
     
     popup <- paste(sep = "<br/>", 
-                   paste0("<img src='", mpv_data$`URL of image of victim`, "'  />"), 
-                   paste0("<b>name: </b>", mpv_data$`Victim's name`))
+                   paste0("<img src='", mpv_data$`URL of image of victim`, "' height='120' width='120' />"), 
+                   paste0("<br/><b>name: </b>", mpv_data$`Victim's name`),
+                   paste0("<b>date of injury leading to death: </b>", format(mpv_data$`Date of injury resulting in death (month/day/year)`, format = "%A, %d %B %Y")),
+                   paste0("<a href='", mpv_data$`Link to news article or photo of official document`, "'>news article / photo of official doc</a>"))
     
     if (input$colour == "none") {
     

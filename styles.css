@@ -48,3 +48,8 @@ h1, h2, h3, h4 { font-weight: 400; }
 .leaflet-container {
   background-color: black !important;
 }
+
+.leaflet-popup-content-wrapper {
+  color: white;
+  background-color: black
+}
