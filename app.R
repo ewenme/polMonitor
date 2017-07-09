@@ -47,9 +47,7 @@ mpv_data$`Victim's race` <- as.factor(mpv_data$`Victim's race`)
 
 # Choices for drop-downs
 vars <- c(
-  "none" = "none",
-  "race (victim)" = "Victim's race",
-  "age (victim)" = "Victim's age band",
+  "none" = "none", "race (victim)" = "Victim's race", "age (victim)" = "Victim's age band",
   "gender (victim)" = "Victim's gender"
 )
 
@@ -59,7 +57,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                  tabPanel(shinyjs::useShinyjs(), title="map",
                           div(class="outer",
                           tags$head(
-                            # Include our custom CSS
+                            # Include custom CSS
                             includeCSS("styles.css")
                           ),
                           # output area for leaflet map
@@ -71,8 +69,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                                         # map type
                                         radioButtons(inputId="mapType", "map type",
                                                      choices=c("dot", "choropleth"),
-                                                     selected = "dot", inline = TRUE,
-                                                     width = "auto"),
+                                                     selected = "dot", inline = TRUE, width = "auto"),
                                         # map's date range
                                         dateRangeInput(inputId="dates", label="occurred between:",
                                                        start = min(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
@@ -80,10 +77,12 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                                                        format = "d M yyyy", startview = "year"),
                                         conditionalPanel(condition = "input.mapType == 'dot'",
                                                          selectInput(inputId="colour", label="colour", 
-                                                                     choices=vars,
-                                                                     selected=NULL, multiple=FALSE)),
+                                                                     choices=vars, selected=NULL, 
+                                                                     multiple=FALSE)),
                                         a(id = "toggleFilters", "Show/hide filters", href = "#"),
                                         shinyjs::hidden(div(id="filters",
+                                                            conditionalPanel(
+                                                              condition = "input.mapType == 'dot'",
                                         checkboxGroupInput(inputId="race", label="race (victim)",
                                                            choices=levels(mpv_data$`Victim's race`),
                                                            selected=levels(mpv_data$`Victim's race`),
@@ -95,7 +94,21 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                                         checkboxGroupInput(inputId="age", label="age (victim)",
                                                            choices=levels(mpv_data$`Victim's age band`),
                                                            selected=levels(mpv_data$`Victim's age band`),
-                                                           inline = TRUE, width = "auto")
+                                                           inline = TRUE, width = "auto")),
+                                        conditionalPanel(
+                                          condition = "input.mapType == 'choropleth'",
+                                          checkboxGroupInput(inputId="raceCensus", label="race (victim)",
+                                                             choices=levels(censusData$race),
+                                                             selected=levels(censusData$race),
+                                                             inline = TRUE, width = "auto"),
+                                          checkboxGroupInput(inputId="genderCensus", label="gender (victim)",
+                                                             choices=levels(censusData$gender),
+                                                             selected=levels(censusData$gender),
+                                                             inline = TRUE, width = "auto"),
+                                          checkboxGroupInput(inputId="ageCensus", label="age (victim)",
+                                                             choices=levels(censusData$age_band),
+                                                             selected=levels(censusData$age_band),
+                                                             inline = TRUE, width = "auto"))
                                         )
                                         )
                           )
@@ -108,39 +121,35 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
 
 server <- function(input, output, session) {
   
-  observe({
-    x <- input$mapType
-    
-    if (x == "chloropleth")
-      updateCheckboxGroupInput(session, inputId="race", label="race (victim)",
-                               choices=c("Asian", "Black", "Hispanic", "Native American",
-                               "Pacific Islander", "White"),
-                               selected=c("Asian", "Black", "Hispanic", "Native American",
-                                          "Pacific Islander", "White"),
-                               inline = TRUE, width = "auto")
-  })
-  
   # Reactive expression for deaths data subsetted to what dates the user selected
   filtered_data <- reactive({
     
+    if (input$mapType == "dot") {
     subset(mpv_data, `Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
              `Date of injury resulting in death (month/day/year)` <= input$dates[2] & 
              `Victim's race` %in% input$race & `Victim's gender` %in% input$gender & 
              `Victim's age band` %in% input$age)
+    } else if (input$mapType == "choropleth") {
+      subset(mpv_data, `Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
+               `Date of injury resulting in death (month/day/year)` <= input$dates[2] & 
+               `Victim's race` %in% input$raceCensus & `Victim's gender` %in% input$genderCensus & 
+               `Victim's age band` %in% input$ageCensus)  
+    }
     
   })
   
   # Reactive expression for census data, behaving similarly to the above expression
-  filtered_census <- eventReactive(input$mapType, {
+  filtered_census <- reactive({
     
     if (input$mapType == "choropleth")
     # census data to match user inputs
     subset(censusData, 
-           race %in% input$race & gender %in% input$gender & age_band %in% input$age)
+           race %in% input$raceCensus & gender %in% input$genderCensus & age_band %in% input$ageCensus)
     else
       NULL
   })
   
+  # observer for hide/show filters
   observe({
     shinyjs::onclick("toggleFilters",
                      shinyjs::toggle(id = "filters", anim = TRUE)) 
@@ -197,18 +206,17 @@ server <- function(input, output, session) {
     # make summary population figure for each state
     data <- filtered_census() %>%
       group_by(GEOID, NAME) %>%
-      summarise(population=sum(value, na.rm=TRUE))
+      summarise(value=sum(value, na.rm=TRUE))
     
     # join w/ shapefile
     states <- left_join(x = states, y = data, by="GEOID")
     
     data <- filtered_data() %>%
-      filter(`Victim's race` != "Unknown race") %>%
       group_by(`Location of death (state)`) %>%
       summarise(death_count=n()) %>%
       complete(`Location of death (state)`, fill = list(death_count = 0)) %>%
       right_join(states, by=c("Location of death (state)"="STUSPS")) %>%
-      mutate(death_per_mil=round(death_count/population*1000000), digits=1) %>%
+      mutate(death_per_mil=round(death_count/value*1000000), digits=1) %>%
       filter(!is.na(death_count)) %>%
       st_as_sf() %>%
       st_transform(crs = "+init=epsg:4326")
@@ -223,28 +231,16 @@ server <- function(input, output, session) {
     clearControls() %>%
     clearMarkers() %>%
     clearShapes() %>%
-    addPolygons(fillOpacity = 0.7,
-                dashArray = "3",
-                color = "white",
-                weight = 1.5,
+    addPolygons(fillOpacity = 0.7, dashArray = "3", color = "white", weight = 1.5,
                 fillColor = ~ pal(death_per_mil),
                 highlight = highlightOptions(
-                  weight = 5,
-                  color = "#666",
-                  dashArray = "",
-                  fillOpacity = 0.7,
-                  bringToFront = TRUE),
+                  weight = 5, color = "#666", dashArray = "", fillOpacity = 0.7, bringToFront = TRUE),
                 label = labels,
                 labelOptions = labelOptions(
                   style = list("font-weight" = "normal", padding = "3px 8px"),
-                  textsize = "15px",
-                  direction = "auto")) %>%
-    addLegend("bottomleft", 
-              pal = pal, 
-              values = ~ death_per_mil,
-              title = "deaths per million residents",
-              opacity = 1,
-              layerId="chloroLegend") 
+                  textsize = "15px", direction = "auto")) %>%
+    addLegend("bottomleft", pal = pal, values = ~ death_per_mil, title = "deaths per million residents",
+              opacity = 1, layerId="choroLegend") 
     } else
       NULL
   
