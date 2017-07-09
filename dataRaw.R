@@ -175,7 +175,8 @@ pops <- get_decennial(year = 2010, variables = c("P012A003", "P012A004",
               ifelse(str_detect(concept, "Asian"), "Asian",
               ifelse(str_detect(concept, "Native Hawaiian"), "Pacific Islander",
               ifelse(str_detect(concept, "Hispanic"), "Hispanic", ""))))))) %>%
-  select(-label, -concept)
+  select(-label, -concept) %>%
+  ungroup()
 
 # write to file
 write_csv(pops, "censusData.csv")

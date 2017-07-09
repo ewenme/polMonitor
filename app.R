@@ -17,73 +17,32 @@ library(tidycensus)
 
 # LOAD ----------------------------------------------------------------
 
+# load census data
+censusData <- read_csv("censusData.csv")
+
 #load state shapefile
 states <- states()
-
-# join them
-states <- geo_join(spatial_data = states, data_frame = pops, by="GEOID")
-
-# convert to sf
-states <- st_as_sf(states)
 
 # load deaths data
 mpv_data <- read_csv("geocodedMPVDataset.csv")
 
-# test sf chloropeth
-test <- mpv_data %>%
-  group_by(`Location of death (state)`) %>%
-  summarise(death_count=n()) %>%
-  complete(`Location of death (state)`, fill = list(death_count = 0)) %>%
-  right_join(states, by=c("Location of death (state)"="STUSPS")) %>%
-  mutate(death_per_mil=round(death_count/population*1000000), digits=1) %>%
-  filter(!is.na(death_count)) %>%
-  st_as_sf()
-
-pal <- colorBin(palette = "magma", domain = test$death_per_mil, bins = 5, reverse = TRUE)
-
-labels <- sprintf(
-  "<strong>%s</strong><br/>%g deaths / million residents",
-  test$NAME, test$death_per_mil
-) %>% lapply(htmltools::HTML)
-
-test %>%
-  st_transform(crs = "+init=epsg:4326") %>%
-  leaflet(width = "100%") %>%
-  addProviderTiles("CartoDB.DarkMatter") %>%
-  addPolygons(fillOpacity = 0.7,
-              dashArray = "3",
-              color = "white",
-              weight = 1.5,
-              fillColor = ~ pal(death_per_mil),
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE),
-              label = labels,
-              labelOptions = labelOptions(
-                style = list("font-weight" = "normal", padding = "3px 8px"),
-                textsize = "15px",
-                direction = "auto")) %>%
-  addLegend("bottomleft", 
-            pal = pal, 
-            values = ~ death_per_mil,
-            title = "deaths per million residents",
-            opacity = 1)
-
 
 # CLEAN ----------------------------------------------------------------
 
-# make factor vars
-mpv_data$`Victim's gender` <- as.factor(mpv_data$`Victim's gender`)
-mpv_data$`Victim's race` <- as.factor(mpv_data$`Victim's race`)
 
 # df of missing geocodes
 missing_geocode <- filter(mpv_data, is.na(lon) | is.na(lat))
 
 # remove missing geocodes from original df
 mpv_data <- filter(mpv_data, !is.na(lon) & !is.na(lat))
+
+# factor vars
+censusData$gender <- as.factor(censusData$gender)
+censusData$age_band <- as.factor(censusData$age_band)
+censusData$race <- as.factor(censusData$race)
+mpv_data$`Victim's gender` <- as.factor(mpv_data$`Victim's gender`)
+mpv_data$`Victim's age band` <- as.factor(mpv_data$`Victim's age band`)
+mpv_data$`Victim's race` <- as.factor(mpv_data$`Victim's race`)
 
 
 ## UI ------------------------------------------------------------------
@@ -99,19 +58,23 @@ vars <- c(
 # make a navigation bar, set params
 ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                  
-                 tabPanel(shinyjs::useShinyjs(), title="dot map",
+                 tabPanel(shinyjs::useShinyjs(), title="map",
                           div(class="outer",
                           tags$head(
                             # Include our custom CSS
                             includeCSS("styles.css")
                           ),
                           # output area for leaflet map
-                          leafletOutput("dot_map", width = "100%", height = "100%"),
+                          leafletOutput("map", width = "100%", height = "100%"),
                           # inset panel for map output options
                           absolutePanel(id="controls", class = "panel panel-default",
                                         top = 100, right = 20, left = "auto", bottom = "auto",
                                         draggable = TRUE, width = "350px", height = "auto",
-                                        # map's date range 
+                                        # map type
+                                        radioButtons(inputId="mapType", "map type",
+                                                     choices=c("dot", "choropleth"),
+                                                     selected = "dot"),
+                                        # map's date range
                                         dateRangeInput(inputId="dates", label="occurred between:",
                                                        start = min(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        end = max(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
@@ -144,7 +107,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
 
 server <- function(input, output, session) {
   
-  # Reactive expression for the data subsetted to what dates the user selected
+  # Reactive expression for deaths data subsetted to what dates the user selected
   filtered_data <- reactive({
     
     subset(mpv_data, `Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
@@ -154,20 +117,53 @@ server <- function(input, output, session) {
     
   })
   
+  # Reactive expression for census data, behaving similarly to the above expression
+  filtered_census <- reactive({
+    
+    # census data to match user inputs
+    data <- subset(censusData, 
+           race %in% input$race & gender %in% input$gender & age_band %in% input$age)
+    
+    # make summary population figure for each state
+    data <- data %>%
+      group_by(GEOID, NAME) %>%
+      summarise(population=sum(value))
+    
+    # join w/ shapefile
+    states <- geo_join(spatial_data = states, data_frame = data, by="GEOID")
+    
+    # convert to sf
+    states <- st_as_sf(states)
+    
+    data <- filtered_data() %>%
+      filter(`Victim's race` != "Unknown race") %>%
+      group_by(`Location of death (state)`) %>%
+      summarise(death_count=n()) %>%
+      complete(`Location of death (state)`, fill = list(death_count = 0)) %>%
+      right_join(states, by=c("Location of death (state)"="STUSPS")) %>%
+      mutate(death_per_mil=round(death_count/population*1000000), digits=1) %>%
+      filter(!is.na(death_count)) %>%
+      st_as_sf() %>%
+      st_transform(crs = "+init=epsg:4326")
+    
+    data
+
+  })
+  
   observe({
     shinyjs::onclick("toggleFilters",
                      shinyjs::toggle(id = "filters", anim = TRUE)) 
   })
    
   # create map output, define params that won't change dynamically 
-  output$dot_map <- renderLeaflet({
+  output$map <- renderLeaflet({
     
     leaflet(mpv_data) %>% addProviderTiles("CartoDB.DarkMatter") %>%
       setView(lng = -93.85, lat = 37.45, zoom = 3)
   })
   
   # observer to update map options selected
-  observe({
+  observeEvent(input$mapType == "dot", {
     
     colourBy <- input$colour
     
@@ -179,7 +175,7 @@ server <- function(input, output, session) {
     
     if (input$colour == "none") {
     
-    leafletProxy("dot_map", data = filtered_data()) %>%
+    leafletProxy("map", data = filtered_data()) %>%
       clearShapes() %>%
       addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color="#DC143C", fillColor = "#DC143C",
                  layerId=~mpv_data, popup= ~popup)
@@ -189,18 +185,53 @@ server <- function(input, output, session) {
       colourData <- mpv_data[[colourBy]]
       pal <- colorFactor("viridis", colourData)
       
-      leafletProxy("dot_map", data = filtered_data()) %>%
+      leafletProxy("map", data = filtered_data()) %>%
         clearShapes() %>%
         addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color=pal(colourData), 
                    fillColor = pal(colourData), popup= ~popup, layerId=~mpv_data) %>%
         addLegend("bottomleft", pal=pal, values=colourData, title=colourBy,
                   layerId="colourLegend")
       
-    }
+    } 
     
   })
   
-}
+  observeEvent(input$mapType == "chloropleth", {
+    
+  data <- filtered_census()
+  
+  pal <- colorBin(palette = "magma", domain = data$death_per_mil, bins = 5, reverse = TRUE)
+  
+  labels <- sprintf("<strong>%s</strong><br/>%g deaths / million residents",
+                    data$NAME, data$death_per_mil) %>% lapply(htmltools::HTML)
+  
+  leafletProxy("map", data=filtered_census()) %>%
+    clearShapes() %>%
+    addPolygons(fillOpacity = 0.7,
+                dashArray = "3",
+                color = "white",
+                weight = 1.5,
+                fillColor = ~ pal(death_per_mil),
+                highlight = highlightOptions(
+                  weight = 5,
+                  color = "#666",
+                  dashArray = "",
+                  fillOpacity = 0.7,
+                  bringToFront = TRUE),
+                label = labels,
+                labelOptions = labelOptions(
+                  style = list("font-weight" = "normal", padding = "3px 8px"),
+                  textsize = "15px",
+                  direction = "auto")) %>%
+    addLegend("bottomleft", 
+              pal = pal, 
+              values = ~ death_per_mil,
+              title = "deaths per million residents",
+              opacity = 1)
+  
+  }
+
+  )}
 
 # Run the application 
 shinyApp(ui = ui, server = server)
