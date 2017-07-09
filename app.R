@@ -20,7 +20,7 @@ library(tidycensus)
 censusData <- read_csv("censusData.csv")
 
 #load state shapefile
-states <- states()
+states <- st_read("tl_2015_us_state")
 
 # load deaths data
 mpv_data <- read_csv("geocodedMPVDataset.csv")
@@ -131,12 +131,14 @@ server <- function(input, output, session) {
   })
   
   # Reactive expression for census data, behaving similarly to the above expression
-  filtered_census <- eventReactive(input$mapType == "choropleth", {
+  filtered_census <- eventReactive(input$mapType, {
     
+    if (input$mapType == "choropleth")
     # census data to match user inputs
     subset(censusData, 
            race %in% input$race & gender %in% input$gender & age_band %in% input$age)
-    
+    else
+      NULL
   })
   
   observe({
@@ -198,10 +200,7 @@ server <- function(input, output, session) {
       summarise(population=sum(value, na.rm=TRUE))
     
     # join w/ shapefile
-    states <- geo_join(spatial_data = states, data_frame = data, by="GEOID")
-    
-    # convert to sf
-    states <- st_as_sf(states)
+    states <- left_join(x = states, y = data, by="GEOID")
     
     data <- filtered_data() %>%
       filter(`Victim's race` != "Unknown race") %>%
@@ -214,10 +213,11 @@ server <- function(input, output, session) {
       st_as_sf() %>%
       st_transform(crs = "+init=epsg:4326")
     
-  pal <- colorBin(palette = "magma", domain = data$death_per_mil, bins = 5, reverse = TRUE)
+  pal <- colorBin(palette = "magma", domain = data$death_per_mil, bins = 5, reverse = TRUE,
+                  na.color = "#808080")
   
   labels <- sprintf("<strong>%s</strong><br/>%g deaths / million residents",
-                    data$NAME, data$death_per_mil) %>% lapply(htmltools::HTML)
+                    data$NAME.x, data$death_per_mil) %>% lapply(htmltools::HTML)
   
   leafletProxy("map", data=data) %>%
     clearControls() %>%
