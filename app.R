@@ -8,24 +8,14 @@ library(shinythemes)
 library(tidyverse)
 library(sf)
 library(leaflet)
-library(tidycensus)
 library(RColorBrewer)
 library(forcats)
 library(viridis)
 library(tigris)
+library(tidycensus)
 
-# tidycensus key
-census_api_key("52dcc3442f47b4e138450637ce5dadb9f444f50c")
-
-options(tigris_use_cache = TRUE)
 
 # LOAD ----------------------------------------------------------------
-
-# load state census data
-pops <- get_decennial(year = 2010, variables = c("P0050003"),
-              geography = "STATE", summary_var = "P0010001") %>%
-  select(-value) %>%
-  rename(population=summary_value)
 
 #load state shapefile
 states <- states()
