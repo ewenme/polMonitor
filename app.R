@@ -66,7 +66,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                           leafletOutput("map", width = "100%", height = "100%"),
                           # inset panel for map output options
                           absolutePanel(id="controls", class = "panel panel-default",
-                                        top = 100, right = 20, left = "auto", bottom = "auto",
+                                        top = 100, right = 100, left = "auto", bottom = "auto",
                                         draggable = TRUE, width = "350px", height = "auto",
                                         # map type
                                         radioButtons(inputId="mapType", "map type",
@@ -177,9 +177,8 @@ server <- function(input, output, session) {
       theme(
         panel.background = element_rect(fill = "black"),
         plot.background = element_rect(fill = "black"),
-        panel.grid.minor = element_blank(),
+        panel.grid = element_blank(),
         panel.border = element_blank(),
-        panel.grid.major = element_blank(),
         legend.background = element_rect(fill = "black"),
         legend.key = element_blank(),
         legend.text = element_text(colour = "white", size = 12),
@@ -194,7 +193,7 @@ server <- function(input, output, session) {
   output$map <- renderLeaflet({
     
     leaflet(mpv_data) %>% addProviderTiles("CartoDB.DarkMatter") %>%
-      setView(lng = -93.85, lat = 37.45, zoom = 3)
+      setView(lng = -93.85, lat = 45, zoom = 3)
   })
   
   # observer to update map options selected
