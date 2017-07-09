@@ -45,11 +45,16 @@ test <- mpv_data %>%
   summarise(death_count=n()) %>%
   complete(`Location of death (state)`, fill = list(death_count = 0)) %>%
   right_join(states, by=c("Location of death (state)"="STUSPS")) %>%
-  mutate(death_per_mil=death_count/population*1000000) %>%
+  mutate(death_per_mil=round(death_count/population*1000000), digits=1) %>%
   filter(!is.na(death_count)) %>%
   st_as_sf()
 
-pal <- colorQuantile(palette = "magma", domain = test$death_per_mil, n = 5)
+pal <- colorBin(palette = "magma", domain = test$death_per_mil, bins = 5, reverse = TRUE)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>%g deaths / million residents",
+  test$NAME, test$death_per_mil
+) %>% lapply(htmltools::HTML)
 
 test %>%
   st_transform(crs = "+init=epsg:4326") %>%
@@ -65,20 +70,20 @@ test %>%
                 color = "#666",
                 dashArray = "",
                 fillOpacity = 0.7,
-                bringToFront = TRUE)) %>%
-  addLegend("bottomright", 
+                bringToFront = TRUE),
+              label = labels,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>%
+  addLegend("bottomleft", 
             pal = pal, 
             values = ~ death_per_mil,
-            title = "Deaths per million population",
+            title = "deaths per million residents",
             opacity = 1)
 
 
 # CLEAN ----------------------------------------------------------------
-
-# to remove
-mpv_data$`Victim's age band` <- cut(as.numeric(mpv_data$`Victim's age`),
-                               breaks = c(0, 15, 34, 54, 74, Inf),
-                               labels = c("0-15", "16-34", "35-54", "55-74", "75+"))
 
 # make factor vars
 mpv_data$`Victim's gender` <- as.factor(mpv_data$`Victim's gender`)
@@ -151,12 +156,12 @@ server <- function(input, output, session) {
   
   # Reactive expression for the data subsetted to what dates the user selected
   filtered_data <- reactive({
-    # mpv_data[mpv_data$`Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
-    #            mpv_data$`Date of injury resulting in death (month/day/year)` <= input$dates[2],]
+    
     subset(mpv_data, `Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
              `Date of injury resulting in death (month/day/year)` <= input$dates[2] & 
              `Victim's race` %in% input$race & `Victim's gender` %in% input$gender & 
              `Victim's age band` %in% input$age)
+    
   })
   
   observe({

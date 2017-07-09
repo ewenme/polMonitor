@@ -1,23 +1,27 @@
+# script for initial data d/l from mappingpoliceviolence.org
+
 # load -----------------------
 
 require(readxl)
+require(tidyverse)
 require(stringr)
 require(ggmap)
+require(tidycensus)
+library(tigris)
 
-# download latest data
+# download police data
 url <- "http://mappingpoliceviolence.org/s/MPVDatasetDownload-9pyl.xlsx"
 download.file(url, destfile = "MPVDatasetDownload.xlsx")
 
-# read data
+# read in police data
 deaths <- read_excel("MPVDatasetDownload.xlsx", sheet = "2013-2017 Police Killings")
-
 rm(url)
 
 
 # clean ----------------------
 
 # make age band var
-mpv_data$`Victim's age band` <- cut(as.numeric(mpv_data$`Victim's age`),
+deaths$`Victim's age band` <- cut(as.numeric(deaths$`Victim's age`),
                                     breaks = c(0, 15, 34, 54, 74, Inf),
                                     labels = c("0-15", "16-34", "35-54", "55-74", "75+"))
 
@@ -30,9 +34,9 @@ deaths$address_searchable <- str_replace_all(deaths$address, " ", "%20")
 deaths$address_searchable <- str_replace_all(deaths$address_searchable, "&", "%26")
 
 # # get lat/lon for records 
-# addressesA <- lapply(deaths$address_searchable[1:2500], geocode, output="latlon")
-# addressesB <- lapply(deaths$address[2501:5000], geocode, output="latlon")
-# addressesC <- lapply(deaths$address[5001:length(deaths$address)], geocode, output="latlon")
+addressesA <- lapply(deaths$address_searchable[1:2500], geocode, output="latlon")
+addressesB <- lapply(deaths$address_searchable[2501:5000], geocode, output="latlon")
+addressesC <- lapply(deaths$address[5001:length(deaths$address)], geocode, output="latlon")
 
 # bind records
 addressesA <- bind_rows(addressesA)
