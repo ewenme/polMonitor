@@ -78,8 +78,10 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                                                        start = min(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        end = max(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        format = "d M yyyy", startview = "year"),
-                                        selectInput(inputId="colour", label="colour", choices=vars,
-                                                    selected=NULL, multiple=FALSE),
+                                        conditionalPanel(condition = "input.mapType == 'dot'",
+                                                         selectInput(inputId="colour", label="colour", 
+                                                                     choices=vars,
+                                                                     selected=NULL, multiple=FALSE)),
                                         a(id = "toggleFilters", "Show/hide filters", href = "#"),
                                         shinyjs::hidden(div(id="filters",
                                         checkboxGroupInput(inputId="race", label="race (victim)",
@@ -150,9 +152,10 @@ server <- function(input, output, session) {
   })
   
   # observer to update map options selected
-  observeEvent(input$mapType, {
+  observe({
     
     colourBy <- input$colour
+    map_type <- input$mapType
     
     popup <- paste(sep = "<br/>", 
                    paste0("<img src='", mpv_data$`URL of image of victim`, "' height='120' width='120' />"), 
@@ -160,15 +163,15 @@ server <- function(input, output, session) {
                    paste0("<b>date of injury leading to death: </b>", format(mpv_data$`Date of injury resulting in death (month/day/year)`, format = "%A, %d %B %Y")),
                    paste0("<a href='", mpv_data$`Link to news article or photo of official document`, "'>news article / photo of official doc</a>"))
     
-    if (input$colour == "none" & input$mapType == "dot") {
+    if (colourBy == "none" & map_type == "dot") {
     
     leafletProxy("map", data = filtered_data()) %>%
       clearShapes() %>%
       clearControls() %>%
       addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color="#DC143C", fillColor = "#DC143C",
-                 layerId=~mpv_data, popup= ~popup)
+                 popup= ~popup, layerId=~mpv_data)
       
-    } else if (input$colour != "none" & input$mapType == "dot") {
+    } else if (colourBy != "none" & map_type == "dot") {
       
       colourData <- mpv_data[[colourBy]]
       pal <- colorFactor("viridis", colourData)
@@ -177,7 +180,7 @@ server <- function(input, output, session) {
         clearShapes() %>%
         clearControls() %>%
         addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color=pal(colourData), 
-                   fillColor = pal(colourData), popup= ~popup, layerId="markers") %>%
+                   fillColor = pal(colourData), popup= ~popup, layerId=~mpv_data) %>%
         addLegend("bottomleft", pal=pal, values=colourData, title=colourBy,
                   layerId="dotLegend")
       
@@ -185,7 +188,7 @@ server <- function(input, output, session) {
     
   })
   
-  observeEvent(input$mapType, {
+  observe( {
     
     if (input$mapType == "choropleth") {
     
