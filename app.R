@@ -12,6 +12,7 @@ library(RColorBrewer)
 library(viridis)
 library(tigris)
 library(tidycensus)
+library(lubridate)
 
 
 # LOAD ----------------------------------------------------------------
@@ -23,7 +24,8 @@ censusData <- read_csv("censusData.csv")
 states <- st_read("tl_2015_us_state")
 
 # load deaths data
-mpv_data <- read_csv("geocodedMPVDataset.csv")
+mpv_data <- read_csv("geocodedMPVDataset.csv") %>%
+  mutate(month=month(`Date of injury resulting in death (month/day/year)`, label=TRUE))
 
 
 # CLEAN ----------------------------------------------------------------
@@ -80,6 +82,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                                                                      choices=vars, selected=NULL, 
                                                                      multiple=FALSE)),
                                         a(id = "toggleFilters", "Show/hide filters", href = "#"),
+                                        tags$br(),
                                         shinyjs::hidden(div(id="filters",
                                                             conditionalPanel(
                                                               condition = "input.mapType == 'dot'",
@@ -110,7 +113,9 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                                                              selected=levels(censusData$age_band),
                                                              inline = TRUE, width = "auto"))
                                         )
-                                        )
+                                        ),
+                                        tags$br(),
+                                        plotOutput(outputId="cumPlot", height = 220)
                           )
                           )
                  )
@@ -153,6 +158,36 @@ server <- function(input, output, session) {
   observe({
     shinyjs::onclick("toggleFilters",
                      shinyjs::toggle(id = "filters", anim = TRUE)) 
+  })
+  
+  # render cumulative plot
+  output$cumPlot <- renderPlot({
+    
+    filtered_data() %>%
+      filter(year >= max(year)-1) %>%
+      group_by(year, month) %>%
+      summarise(count=n()) %>%
+      group_by(year) %>%
+      mutate(Total = cumsum(count)) %>%
+      ggplot(aes(x=month, y=Total, group=year, colour=factor(year))) +
+      geom_line() +
+      labs(x="month", y="people killed by police") +
+      scale_x_discrete(breaks=c("Feb", "Apr", "Jun", "Aug", "Oct", "Dec")) +
+      scale_color_manual(values = c("white", "#DC143C")) +
+      theme(
+        panel.background = element_rect(fill = "black"),
+        plot.background = element_rect(fill = "black"),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        legend.background = element_rect(fill = "black"),
+        legend.key = element_blank(),
+        legend.text = element_text(colour = "white", size = 12),
+        axis.text = element_text(colour = "white", size = 10),
+        axis.title = element_text(colour = "white", size = 12),
+        legend.position = "top"
+      )
+    
   })
    
   # create map output, define params that won't change dynamically 

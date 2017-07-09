@@ -6,6 +6,8 @@ require(stringr)
 require(ggmap)
 require(tidycensus)
 library(tigris)
+library(lubridate)
+
 
 # DEATHS DATA ----------------------------------------
 
@@ -16,7 +18,8 @@ url <- "http://mappingpoliceviolence.org/s/MPVDatasetDownload-9pyl.xlsx"
 download.file(url, destfile = "MPVDatasetDownload.xlsx")
 
 # read in police data
-deaths <- read_excel("MPVDatasetDownload.xlsx", sheet = "2013-2017 Police Killings")
+deaths <- read_excel("MPVDatasetDownload.xlsx", sheet = "2013-2017 Police Killings") %>%
+  mutate(year=year(`Date of injury resulting in death (month/day/year)`))
 rm(url)
 
 
@@ -54,7 +57,7 @@ deaths <- bind_cols(deaths, addresses)
 deaths <- deaths[seq(dim(deaths)[1],1),]
 
 # write to file
-write_csv(deaths, "geocodedMPVDataset.csv")
+write_csv(mpv_data, "geocodedMPVDataset.csv")
 
 
 # CENSUS DATA --------------------------------------------------------
