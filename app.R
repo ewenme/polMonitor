@@ -150,7 +150,7 @@ server <- function(input, output, session) {
   })
   
   # observer to update map options selected
-  observeEvent(input$mapType == "dot", {
+  observeEvent(input$mapType, {
     
     colourBy <- input$colour
     
@@ -160,14 +160,15 @@ server <- function(input, output, session) {
                    paste0("<b>date of injury leading to death: </b>", format(mpv_data$`Date of injury resulting in death (month/day/year)`, format = "%A, %d %B %Y")),
                    paste0("<a href='", mpv_data$`Link to news article or photo of official document`, "'>news article / photo of official doc</a>"))
     
-    if (input$colour == "none") {
+    if (input$colour == "none" & input$mapType == "dot") {
     
     leafletProxy("map", data = filtered_data()) %>%
       clearShapes() %>%
+      clearControls() %>%
       addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color="#DC143C", fillColor = "#DC143C",
                  layerId=~mpv_data, popup= ~popup)
       
-    } else {
+    } else if (input$colour != "none" & input$mapType == "dot") {
       
       colourData <- mpv_data[[colourBy]]
       pal <- colorFactor("viridis", colourData)
@@ -176,7 +177,7 @@ server <- function(input, output, session) {
         clearShapes() %>%
         clearControls() %>%
         addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color=pal(colourData), 
-                   fillColor = pal(colourData), popup= ~popup, layerId=~mpv_data) %>%
+                   fillColor = pal(colourData), popup= ~popup, layerId="markers") %>%
         addLegend("bottomleft", pal=pal, values=colourData, title=colourBy,
                   layerId="dotLegend")
       
@@ -184,7 +185,9 @@ server <- function(input, output, session) {
     
   })
   
-  observeEvent(input$mapType == "choropleth", {
+  observeEvent(input$mapType, {
+    
+    if (input$mapType == "choropleth") {
     
     # make summary population figure for each state
     data <- filtered_census() %>%
@@ -216,6 +219,7 @@ server <- function(input, output, session) {
   leafletProxy("map", data=data) %>%
     clearControls() %>%
     clearMarkers() %>%
+    clearShapes() %>%
     addPolygons(fillOpacity = 0.7,
                 dashArray = "3",
                 color = "white",
@@ -237,7 +241,9 @@ server <- function(input, output, session) {
               values = ~ death_per_mil,
               title = "deaths per million residents",
               opacity = 1,
-              layerId="chloroLegend")
+              layerId="chloroLegend") 
+    } else
+      NULL
   
 })
   
