@@ -208,18 +208,6 @@ server <- function(input, output, session) {
                zoom = 3)
   })
   
-  # # observer for map zooming
-  # observe({
-  #   if (input$mapType == "dot" & input$state != "all") {
-  #     leafletProxy("map", data = filtered_data()) %>%
-  #       clearMarkers() %>%
-  #       addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color="#DC143C", fillColor = "#DC143C",
-  #                  popup= ~popup, layerId=~mpv_data) %>%
-  #       setView(lng = max(filtered_data()$lon), lat = max(filtered_data()$lat),
-  #               zoom = 6)
-  #   }
-  # })
-  
   # observer to update map options selected
   observe({
     
@@ -241,7 +229,7 @@ server <- function(input, output, session) {
       addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color="#DC143C", fillColor = "#DC143C",
                  popup= ~popup, layerId=~mpv_data) %>%
         setView(lng = mean(filtered_data()$lon), lat = mean(filtered_data()$lat),
-                zoom = 3)
+                zoom = if_else(input$state == "all", 3, 5))
       
     } else if (colourBy != "none" & map_type == "dot") {
       
@@ -256,12 +244,13 @@ server <- function(input, output, session) {
         addLegend("bottomleft", pal=pal, values=colourData, title=colourBy,
                   layerId="dotLegend") %>%
         setView(lng = mean(filtered_data()$lon), lat = mean(filtered_data()$lat),
-                zoom = 3)
+                zoom = if_else(input$state == "all", 3, 5))
       
     } 
     
   })
   
+  # observer for map inputs
   observe( {
     
     if (input$mapType == "choropleth") {
