@@ -132,21 +132,23 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                           )
                  ),
                  navbarMenu("more",
-                            tabPanel(title="data",
+                            tabsPanel(title="data",
                                      fluidRow(
-                                       column(3, selectInput("states", "states", 
-                                                             c("All states"="", 
-                                                               levels(cleantable$State),
-                                                               multiple=TRUE)),
-                                       column(3, conditionalPanel("input.states",
-                                                                  selectInput("cities", "Cities", 
+                                       column(3, 
+                                              selectInput("states", "states", c("All states"="", 
+                                                                                levels(cleantable$State),
+                                                                                multiple=TRUE)
+                                                          ),
+                                       column(3, conditionalPanel("input.states", 
+                                                                  selectInput("cities", "Cities",
                                                                               c("All cities"=""), 
-                                                                              multiple=TRUE))),
+                                                                              multiple=TRUE)
+                                                                  )),
                                        column(3, conditionalPanel("input.states",
                                                                   selectInput("zipcodes", "Zipcodes", 
                                                                               c("All zipcodes"=""), 
-                                                                              multiple=TRUE))
-                                     ))),
+                                                                              multiple=TRUE)
+                                                                  )))),
                                      hr(),
                                      DT::dataTableOutput("table"))
                  ))
