@@ -374,7 +374,11 @@ server <- function(input, output, session) {
       DT::datatable(rownames = FALSE, 
                     options = list(pageLength = 5, dom = 'tip',
                                    autoWidth = TRUE, 
-                                   columnDefs = list(list(className = 'dt-left', targets = 0:3))))
+                                   columnDefs = list(list(className = 'dt-left', targets = 0:3)),
+                                   initComplete = JS(
+                                     "function(settings, json) {",
+                                     "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+                                     "}")))
     
   })
   
