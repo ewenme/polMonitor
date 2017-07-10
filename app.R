@@ -22,10 +22,12 @@ censusData <- read_csv("censusData.csv")
 
 #load state shapefile
 states <- st_read("tl_2015_us_state")
+state_names <- select(as.data.frame(states), STUSPS, NAME)
 
 # load deaths data
 mpv_data <- read_csv("geocodedMPVDataset.csv") %>%
-  mutate(month=month(`Date of injury resulting in death (month/day/year)`, label=TRUE))
+  mutate(month=month(`Date of injury resulting in death (month/day/year)`, label=TRUE)) %>%
+  left_join(state_names, by=c("Location of death (state)"="STUSPS"))
 
 
 # CLEAN ----------------------------------------------------------------
@@ -43,7 +45,7 @@ censusData$race <- as.factor(censusData$race)
 mpv_data$`Victim's gender` <- as.factor(mpv_data$`Victim's gender`)
 mpv_data$`Victim's age band` <- as.factor(mpv_data$`Victim's age band`)
 mpv_data$`Victim's race` <- as.factor(mpv_data$`Victim's race`)
-
+mpv_data$NAME <- as.factor(as.character(mpv_data$NAME))
 
 ## UI ------------------------------------------------------------------
 
@@ -66,7 +68,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                           leafletOutput("map", width = "100%", height = "100%"),
                           # inset panel for map output options
                           absolutePanel(id="controls", class = "panel panel-default",
-                                        top = 100, right = 100, left = "auto", bottom = "auto",
+                                        top = 25, right = 100, left = "auto", bottom = "auto",
                                         draggable = TRUE, width = "350px", height = "auto",
                                         # map type
                                         radioButtons(inputId="mapType", "map type",
@@ -77,6 +79,10 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                                                        start = min(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        end = max(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        format = "d M yyyy", startview = "year"),
+                                        conditionalPanel(condition = "input.mapType == 'dot'",
+                                                         selectInput(inputId="state", label="state", 
+                                                                     choices=c("all", levels(mpv_data$NAME)),
+                                                                     selected="all", multiple=FALSE)),
                                         conditionalPanel(condition = "input.mapType == 'dot'",
                                                          selectInput(inputId="colour", label="colour", 
                                                                      choices=vars, selected=NULL, 
@@ -115,7 +121,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                                         )
                                         ),
                                         tags$br(),
-                                        plotOutput(outputId="cumPlot", height = 220)
+                                        plotOutput(outputId="cumPlot", height = 200)
                           )
                           )
                  )
@@ -126,14 +132,25 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
 
 server <- function(input, output, session) {
   
+  # observer for hide/show filters
+  observe({
+    shinyjs::onclick("toggleFilters",
+                     shinyjs::toggle(id = "filters", anim = TRUE)) 
+  })
+  
   # Reactive expression for deaths data subsetted to what dates the user selected
   filtered_data <- reactive({
     
-    if (input$mapType == "dot") {
+    if (input$mapType == "dot" & input$state == "all") {
     subset(mpv_data, `Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
              `Date of injury resulting in death (month/day/year)` <= input$dates[2] & 
              `Victim's race` %in% input$race & `Victim's gender` %in% input$gender & 
              `Victim's age band` %in% input$age)
+    } else if (input$mapType == "dot" & input$state != "all") {
+      subset(mpv_data, `Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
+               `Date of injury resulting in death (month/day/year)` <= input$dates[2] & 
+               `Victim's race` %in% input$race & `Victim's gender` %in% input$gender & 
+               `Victim's age band` %in% input$age & NAME %in% input$state)
     } else if (input$mapType == "choropleth") {
       subset(mpv_data, `Date of injury resulting in death (month/day/year)` >= input$dates[1] & 
                `Date of injury resulting in death (month/day/year)` <= input$dates[2] & 
@@ -152,12 +169,6 @@ server <- function(input, output, session) {
            race %in% input$raceCensus & gender %in% input$genderCensus & age_band %in% input$ageCensus)
     else
       NULL
-  })
-  
-  # observer for hide/show filters
-  observe({
-    shinyjs::onclick("toggleFilters",
-                     shinyjs::toggle(id = "filters", anim = TRUE)) 
   })
   
   # render cumulative plot
@@ -193,8 +204,21 @@ server <- function(input, output, session) {
   output$map <- renderLeaflet({
     
     leaflet(mpv_data) %>% addProviderTiles("CartoDB.DarkMatter") %>%
-      setView(lng = -93.85, lat = 45, zoom = 3)
+      setView(lng = mean(filtered_data()$lon), lat = mean(filtered_data()$lat),
+               zoom = 3)
   })
+  
+  # # observer for map zooming
+  # observe({
+  #   if (input$mapType == "dot" & input$state != "all") {
+  #     leafletProxy("map", data = filtered_data()) %>%
+  #       clearMarkers() %>%
+  #       addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color="#DC143C", fillColor = "#DC143C",
+  #                  popup= ~popup, layerId=~mpv_data) %>%
+  #       setView(lng = max(filtered_data()$lon), lat = max(filtered_data()$lat),
+  #               zoom = 6)
+  #   }
+  # })
   
   # observer to update map options selected
   observe({
@@ -203,10 +227,11 @@ server <- function(input, output, session) {
     map_type <- input$mapType
     
     popup <- paste(sep = "<br/>", 
-                   paste0("<img src='", mpv_data$`URL of image of victim`, "' height='120' width='120' />"), 
-                   paste0("<br/><b>name: </b>", mpv_data$`Victim's name`),
-                   paste0("<b>date of injury leading to death: </b>", format(mpv_data$`Date of injury resulting in death (month/day/year)`, format = "%A, %d %B %Y")),
-                   paste0("<a href='", mpv_data$`Link to news article or photo of official document`, "'>news article / photo of official doc</a>"))
+                   paste0("<img src='", filtered_data()$`URL of image of victim`, "' height='120' width='120' />"), 
+                   paste0("<br/><b>name: </b>", filtered_data()$`Victim's name`),
+                   paste0("<b>date of injury leading to death: </b>", format(filtered_data()$`Date of injury resulting in death (month/day/year)`, format = "%A, %d %B %Y")),
+                   paste0("<b>location: </b>", filtered_data()$address),
+                   paste0("<a href='", filtered_data()$`Link to news article or photo of official document`, "'>news article / photo of official doc</a>"))
     
     if (colourBy == "none" & map_type == "dot") {
     
@@ -214,7 +239,9 @@ server <- function(input, output, session) {
       clearShapes() %>%
       clearControls() %>%
       addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color="#DC143C", fillColor = "#DC143C",
-                 popup= ~popup, layerId=~mpv_data)
+                 popup= ~popup, layerId=~mpv_data) %>%
+        setView(lng = mean(filtered_data()$lon), lat = mean(filtered_data()$lat),
+                zoom = 3)
       
     } else if (colourBy != "none" & map_type == "dot") {
       
@@ -227,7 +254,9 @@ server <- function(input, output, session) {
         addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color=pal(colourData), 
                    fillColor = pal(colourData), popup= ~popup, layerId=~mpv_data) %>%
         addLegend("bottomleft", pal=pal, values=colourData, title=colourBy,
-                  layerId="dotLegend")
+                  layerId="dotLegend") %>%
+        setView(lng = mean(filtered_data()$lon), lat = mean(filtered_data()$lat),
+                zoom = 3)
       
     } 
     
