@@ -47,16 +47,21 @@ mpv_data$`Victim's age band` <- as.factor(mpv_data$`Victim's age band`)
 mpv_data$`Victim's race` <- as.factor(mpv_data$`Victim's race`)
 mpv_data$NAME <- as.factor(as.character(mpv_data$NAME))
 
+# variables for data table
+cleantable <- mpv_data %>%
+  select(Name=`Victim's name`, Age=`Victim's age`, Gender=`Victim's gender`, Race=`Victim's race`, 
+         Photo=`URL of image of victim`, Date=`Date of injury resulting in death (month/day/year)`, 
+         City=`Location of death (city)`, State=NAME, Zipcode=`Location of death (zip code)`, 
+         `Agency responsible for death`, `Cause of death`)
+
 ## UI ------------------------------------------------------------------
 
 # Choices for drop-downs
-vars <- c(
-  "none" = "none", "race (victim)" = "Victim's race", "age (victim)" = "Victim's age band",
-  "gender (victim)" = "Victim's gender"
-)
+vars <- c("none" = "none", "race (victim)" = "Victim's race", "age (victim)" = "Victim's age band",
+          "gender (victim)" = "Victim's gender")
 
 # make a navigation bar, set params
-ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
+ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = TRUE,
                  
                  tabPanel(shinyjs::useShinyjs(), title="map",
                           div(class="outer",
@@ -124,13 +129,34 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"),
                                         plotOutput(outputId="cumPlot", height = 200)
                           )
                           )
-                 )
-                 )
+                 ),
+                 navbarMenu("more",
+                            tabPanel(title="data",
+                                     fluidRow(
+                                       column(3, selectInput("states", "states", 
+                                                             c("All states"="", 
+                                                               levels(cleantable$State),
+                                                               multiple=TRUE)),
+                                       column(3, conditionalPanel("input.states",
+                                                                  selectInput("cities", "Cities", 
+                                                                              c("All cities"=""), 
+                                                                              multiple=TRUE))),
+                                       column(3, conditionalPanel("input.states",
+                                                                  selectInput("zipcodes", "Zipcodes", 
+                                                                              c("All zipcodes"=""), 
+                                                                              multiple=TRUE))
+                                     )),
+                                     hr(),
+                                     DT::dataTableOutput("table")))
+                 ))
 
 
 # SERVER ----------------------------------------------------------
 
 server <- function(input, output, session) {
+  
+  
+  # MAP -----------------------------------------
   
   # observer for hide/show filters
   observe({
@@ -171,10 +197,23 @@ server <- function(input, output, session) {
       NULL
   })
   
+  # A reactive expression that returns data points in bounds right now
+  dataInBounds <- reactive({
+    if (is.null(input$map_bounds))
+      return(mpvdata[FALSE,])
+    bounds <- input$map_bounds
+    latRng <- range(bounds$north, bounds$south)
+    lngRng <- range(bounds$east, bounds$west)
+    
+    subset(mpv_data, lat >= latRng[1] & lat <= latRng[2] &
+           lon >= lngRng[1] & lon <= lngRng[2])
+  })
+  
   # render cumulative plot
   output$cumPlot <- renderPlot({
+    req(input$map_bounds)
     
-    filtered_data() %>%
+    dataInBounds() %>%
       filter(year >= max(year)-1) %>%
       group_by(year, month) %>%
       summarise(count=n()) %>%
@@ -297,6 +336,47 @@ server <- function(input, output, session) {
       NULL
   
 })
+  
+  
+  # TABLE -------------------------------------------------------
+  
+  observe({
+    cities <- if (is.null(input$states)) character(0) else {
+      filter(cleantable, State %in% input$states) %>%
+        `$`('City') %>%
+        unique() %>%
+        sort()
+    }
+    stillSelected <- isolate(input$cities[input$cities %in% cities])
+    updateSelectInput(session, "cities", choices = cities,
+                      selected = stillSelected)
+  })
+  
+  observe({
+    zipcodes <- if (is.null(input$states)) character(0) else {
+      cleantable %>%
+        filter(State %in% input$states, is.null(input$cities) | City %in% input$cities) %>%
+        `$`('Zipcode') %>%
+        unique() %>%
+        sort()
+    }
+    stillSelected <- isolate(input$zipcodes[input$zipcodes %in% zipcodes])
+    updateSelectInput(session, "zipcodes", choices = zipcodes,
+                      selected = stillSelected)
+  })
+  
+  # output for table of data inbounds
+  output$table <- DT::renderDataTable({
+    cleantable %>%
+      filter(is.null(input$states) | State %in% input$states,
+             is.null(input$cities) | City %in% input$cities,
+             is.null(input$zipcodes) | Zipcode %in% input$zipcodes) %>%
+      DT::datatable(rownames = FALSE, 
+                    options = list(pageLength = 5, dom = 'tip',
+                                   autoWidth = TRUE, 
+                                   columnDefs = list(list(className = 'dt-left', targets = 0:3))))
+    
+  })
   
 }
 
