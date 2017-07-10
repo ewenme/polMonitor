@@ -50,9 +50,10 @@ mpv_data$NAME <- as.factor(as.character(mpv_data$NAME))
 # variables for data table
 cleantable <- mpv_data %>%
   select(Name=`Victim's name`, Age=`Victim's age`, Gender=`Victim's gender`, Race=`Victim's race`, 
-         Photo=`URL of image of victim`, Date=`Date of injury resulting in death (month/day/year)`, 
+         Date=`Date of injury resulting in death (month/day/year)`, 
          City=`Location of death (city)`, State=NAME, Zipcode=`Location of death (zip code)`, 
-         `Agency responsible for death`, `Cause of death`)
+         `Agency responsible for death`, `Cause of death`,
+         Photo=`URL of image of victim`)
 
 ## UI ------------------------------------------------------------------
 
@@ -145,9 +146,9 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                                                                   selectInput("zipcodes", "Zipcodes", 
                                                                               c("All zipcodes"=""), 
                                                                               multiple=TRUE))
-                                     )),
+                                     ))),
                                      hr(),
-                                     DT::dataTableOutput("table")))
+                                     DT::dataTableOutput("table"))
                  ))
 
 
@@ -378,7 +379,9 @@ server <- function(input, output, session) {
                                    initComplete = JS(
                                      "function(settings, json) {",
                                      "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
-                                     "}")))
+                                     "$(this.api().table().body()).css({'background-color': '#000', 'color': '#fff'});",
+                                     "}"))) %>%
+      DT::formatStyle(columns = 1:11, color = "black")
     
   })
   
