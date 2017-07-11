@@ -1,7 +1,5 @@
 # SETUP ---------------------------------------------------------------
 
-setwd("~/Documents/Github/polMonitor")
-
 # pkgs
 library(shiny)
 library(shinythemes)
@@ -22,14 +20,14 @@ library(extrafont)
 # font_import(pattern = "Work")
 
 # load census data
-censusData <- read_csv("censusData.csv")
+censusData <- read_csv("data/censusData.csv")
 
 #load state shapefile
-states <- st_read("tl_2015_us_state")
+states <- st_read("data/tl_2015_us_state")
 state_names <- select(as.data.frame(states), STUSPS, NAME)
 
 # load deaths data
-mpv_data <- read_csv("geocodedMPVDataset.csv") %>%
+mpv_data <- read_csv("data/geocodedMPVDataset.csv") %>%
   mutate(month=month(`Date of injury resulting in death (month/day/year)`, label=TRUE)) %>%
   left_join(state_names, by=c("Location of death (state)"="STUSPS"))
 
