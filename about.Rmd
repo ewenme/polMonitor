@@ -1,0 +1,23 @@
+**overview**
+
+polMonitor is an interactive tool for people to explore, and engage with, *known* police violence data. 
+
+**sources**
+
+police violence data is taken from [Mapping Police Violence](https://mappingpoliceviolence.org), a police killings database which draws on several large, independent crowdsourcing efforts. More information about the data is available [here](https://mappingpoliceviolence.org/aboutthedata/).
+
+[US census](https://www.census.gov/2010census/data/) data (2010) was used in the calculation of police killing rates amongst various populations. 
+
+**credits**
+
+first, thank you to the *Mapping Police Violence* planning team ([@samswey](https://twitter.com/samswey), [@deray](https://twitter.com/deray) and [@MsPackyetti](https://twitter.com/MsPackyetti)) for the work and dedication in making this resource open to the world, and for empowering developers to make a contribution to social justice.
+
+the [tidycensus](https://cran.r-project.org/web/packages/tidycensus/index.html), [leaflet](https://cran.r-project.org/web/packages/leaflet/leaflet.pdf) and [shinyjs](https://cran.r-project.org/web/packages/shinyjs/index.html) R packages were invaluable resources in realising this idea. the basemap is *CartoDB.DarkMatter*, designed by [Stamen](http://stamen.com/). also, the beautiful typeface you see in the app is [Work Sans (Regular)](https://github.com/weiweihuanghuang/Work-Sans), developed by [wei](https://twitter.com/w__h_). 
+
+**developers**
+
+polMonitor was developed using [Shiny](https://cran.r-project.org/web/packages/shiny/index.html), an open-source web development framework powered by [R](https://www.r-project.org/) (this project is **not** affiliated with [The Comprehensive R Archive Network](https://cran.r-project.org/) or [The R Foundation](https://www.r-project.org/)). 
+
+Source code is available [here](https://github.com/ewenme/polMonitor). 
+
+

@@ -5,6 +5,7 @@ setwd("~/Documents/Github/polMonitor")
 # pkgs
 library(shiny)
 library(shinythemes)
+library(shinyjs)
 library(tidyverse)
 library(sf)
 library(leaflet)
@@ -13,9 +14,12 @@ library(viridis)
 library(tigris)
 library(tidycensus)
 library(lubridate)
-
+library(extrafont)
 
 # LOAD ----------------------------------------------------------------
+
+# load font
+# font_import(pattern = "Work")
 
 # load census data
 censusData <- read_csv("censusData.csv")
@@ -55,7 +59,7 @@ cleantable <- mpv_data %>%
          `Agency responsible for death`, `Cause of death`, `Armament`=Unarmed, 
          Description=`A brief description of the circumstances surrounding the death`,
          Evidence=`Link to news article or photo of official document`) %>%
-  mutate(Evidence=paste0("<a href='",Evidence,"'>", "Link","</a>"),
+  mutate(Evidence=paste0("<a href='",Evidence,"'>", "link","</a>"),
          Date=ymd(Date))
 
 ## UI ------------------------------------------------------------------
@@ -91,7 +95,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                                                      selected = "dot", inline = TRUE, width = "auto"),
                                         hr(),
                                         # map's date range
-                                        dateRangeInput(inputId="dates", label="occurred between:",
+                                        dateRangeInput(inputId="dates", label="occurred between",
                                                        start = min(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        end = max(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
                                                        format = "d M yyyy", startview = "year"),
@@ -104,7 +108,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                                                                      choices=vars, selected=NULL, 
                                                                      multiple=FALSE)),
                                         hr(),
-                                        a(id = "toggleFilters", "Show/hide filters", href = "#"),
+                                        a(id = "toggleFilters", "show/hide filters", href = "#"),
                                         tags$br(),
                                         shinyjs::hidden(div(id="filters",
                                                             conditionalPanel(
@@ -164,7 +168,11 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                           hr(),
                           
                           DT::dataTableOutput("table")),
-                 tabPanel(title="about"))
+                 tabPanel(title="about",
+                          fluidRow(
+                            column(6,
+                                   includeMarkdown("about.Rmd")
+                            ))))
                  )
                  
 
@@ -239,7 +247,7 @@ server <- function(input, output, session) {
       mutate(Total = cumsum(count)) %>%
       ggplot(aes(x=month, y=Total, group=year, colour=factor(year))) +
       geom_line() +
-      labs(x="month", y="people killed by police") +
+      labs(x="month", y="no. people killed") +
       scale_x_discrete(breaks=c("Feb", "Apr", "Jun", "Aug", "Oct", "Dec")) +
       scale_color_manual(values = c("white", "#DC143C")) +
       theme(
@@ -249,9 +257,9 @@ server <- function(input, output, session) {
         panel.border = element_blank(),
         legend.background = element_rect(fill = "black"),
         legend.key = element_blank(),
-        legend.text = element_text(colour = "white", size = 12),
-        axis.text = element_text(colour = "white", size = 10),
-        axis.title = element_text(colour = "white", size = 12),
+        legend.text = element_text(colour = "white", size = 12, family="WorkSans-Regular"),
+        axis.text = element_text(colour = "white", size = 10, family="WorkSans-Regular"),
+        axis.title = element_text(colour = "white", size = 12, family="WorkSans-Regular"),
         legend.position = "top"
       )
     
@@ -325,16 +333,18 @@ server <- function(input, output, session) {
       summarise(death_count=n()) %>%
       complete(`Location of death (state)`, fill = list(death_count = 0)) %>%
       right_join(states, by=c("Location of death (state)"="STUSPS")) %>%
-      mutate(death_per_mil=round(death_count/value*1000000), digits=1) %>%
+      mutate(death_per_mil=death_count/value*1000000) %>%
       filter(!is.na(death_count)) %>%
       st_as_sf() %>%
       st_transform(crs = "+init=epsg:4326")
     
-  pal <- colorBin(palette = "magma", domain = data$death_per_mil, bins = 5, reverse = TRUE,
-                  na.color = "#808080")
+  pal <- colorBin(palette = "magma", domain = round(data$death_per_mil, digits = 1), 
+                  bins = 5, reverse = TRUE, na.color = "#808080")
   
-  labels <- sprintf("<strong>%s</strong><br/>%g deaths / million residents",
-                    data$NAME.x, data$death_per_mil) %>% lapply(htmltools::HTML)
+  labels <- sprintf("<strong>%s</strong><br/> <strong>deaths:</strong> %s<br/> <strong>residents:</strong>
+                    %s <br/> %.01f deaths / million residents",
+                    data$NAME.x, data$death_count, prettyNum(data$value, big.mark = ","), 
+                    data$death_per_mil) %>% lapply(htmltools::HTML)
   
   leafletProxy("map", data=data) %>%
     clearControls() %>%

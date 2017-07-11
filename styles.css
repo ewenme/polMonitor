@@ -14,10 +14,12 @@ div.outer {
 
 /* Customize fonts */
 body, label, input, button, select { 
-  font-family: 'Helvetica Neue', Helvetica;
+  font-family: 'Work Sans', Regular;
   font-weight: 200;
-  color: white
+  color: white;
+  background-color: black
 }
+
 h1, h2, h3, h4 { font-weight: 400; }
 
 #controls {
@@ -52,5 +54,6 @@ h1, h2, h3, h4 { font-weight: 400; }
 
 .leaflet-popup-content-wrapper {
   color: white;
+  font-family: 'Work Sans', Regular;
   background-color: black
 }
