@@ -52,8 +52,11 @@ cleantable <- mpv_data %>%
   select(Name=`Victim's name`, Age=`Victim's age`, Gender=`Victim's gender`, Race=`Victim's race`, 
          Date=`Date of injury resulting in death (month/day/year)`, 
          City=`Location of death (city)`, State=NAME, Zipcode=`Location of death (zip code)`, 
-         `Agency responsible for death`, `Cause of death`,
-         Photo=`URL of image of victim`)
+         `Agency responsible for death`, `Cause of death`, `Armament`=Unarmed, 
+         Description=`A brief description of the circumstances surrounding the death`,
+         Evidence=`Link to news article or photo of official document`) %>%
+  mutate(Evidence=paste0("<a href='",Evidence,"'>", "Link","</a>"),
+         Date=ymd(Date))
 
 ## UI ------------------------------------------------------------------
 
@@ -72,6 +75,12 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                           ),
                           # output area for leaflet map
                           leafletOutput("map", width = "100%", height = "100%"),
+                          tags$div(id="cite",
+                                   'police killings compiled by ', tags$a(href='https://mappingpoliceviolence.org', 
+                                                                          "Mapping Police Violence"), 
+                                   '| population data taken from the', tags$a(href='https://www.census.gov/2010census/data/',
+                                                                      "U.S. Census (2010)")
+                          ),
                           # inset panel for map output options
                           absolutePanel(id="controls", class = "panel panel-default",
                                         top = 25, right = 100, left = "auto", bottom = "auto",
@@ -80,6 +89,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                                         radioButtons(inputId="mapType", "map type",
                                                      choices=c("dot", "choropleth"),
                                                      selected = "dot", inline = TRUE, width = "auto"),
+                                        hr(),
                                         # map's date range
                                         dateRangeInput(inputId="dates", label="occurred between:",
                                                        start = min(as.Date(mpv_data$`Date of injury resulting in death (month/day/year)`)),
@@ -93,6 +103,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                                                          selectInput(inputId="colour", label="colour", 
                                                                      choices=vars, selected=NULL, 
                                                                      multiple=FALSE)),
+                                        hr(),
                                         a(id = "toggleFilters", "Show/hide filters", href = "#"),
                                         tags$br(),
                                         shinyjs::hidden(div(id="filters",
@@ -126,32 +137,36 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                                                              inline = TRUE, width = "auto"))
                                         )
                                         ),
+                                        hr(),
                                         tags$br(),
                                         plotOutput(outputId="cumPlot", height = 200)
                           )
                           )
                  ),
                  navbarMenu("more",
-                            tabsPanel(title="data",
-                                     fluidRow(
-                                       column(3, 
-                                              selectInput("states", "states", c("All states"="", 
-                                                                                levels(cleantable$State),
-                                                                                multiple=TRUE)
-                                                          ),
-                                       column(3, conditionalPanel("input.states", 
-                                                                  selectInput("cities", "Cities",
-                                                                              c("All cities"=""), 
-                                                                              multiple=TRUE)
-                                                                  )),
-                                       column(3, conditionalPanel("input.states",
-                                                                  selectInput("zipcodes", "Zipcodes", 
-                                                                              c("All zipcodes"=""), 
-                                                                              multiple=TRUE)
-                                                                  )))),
-                                     hr(),
-                                     DT::dataTableOutput("table"))
-                 ))
+                 tabPanel(title="data",
+                          fluidRow(
+                            column(3, 
+                                   selectInput("states", "states", c("All states"="", 
+                                                                     levels(cleantable$State),
+                                                                     multiple=TRUE)
+                                   )),
+                                   column(3, conditionalPanel("input.states", 
+                                                              selectInput("cities", "Cities",
+                                                                          c("All cities"=""), 
+                                                                          multiple=TRUE)
+                                   )),
+                                   column(3, conditionalPanel("input.states",
+                                                              selectInput("zipcodes", "Zipcodes", 
+                                                                          c("All zipcodes"=""), 
+                                                                          multiple=TRUE)
+                                   ))),
+                          hr(),
+                          
+                          DT::dataTableOutput("table")),
+                 tabPanel(title="about"))
+                 )
+                 
 
 
 # SERVER ----------------------------------------------------------
@@ -374,7 +389,7 @@ server <- function(input, output, session) {
       filter(is.null(input$states) | State %in% input$states,
              is.null(input$cities) | City %in% input$cities,
              is.null(input$zipcodes) | Zipcode %in% input$zipcodes) %>%
-      DT::datatable(rownames = FALSE, 
+      DT::datatable(rownames = FALSE, escape = FALSE,
                     options = list(pageLength = 5, dom = 'tip',
                                    autoWidth = TRUE, 
                                    columnDefs = list(list(className = 'dt-left', targets = 0:3)),
@@ -383,7 +398,7 @@ server <- function(input, output, session) {
                                      "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
                                      "$(this.api().table().body()).css({'background-color': '#000', 'color': '#fff'});",
                                      "}"))) %>%
-      DT::formatStyle(columns = 1:11, color = "black")
+      DT::formatStyle(columns = 1:13, color = "black")
     
   })
   
