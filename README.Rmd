@@ -7,7 +7,7 @@ output: github_document
 
 <br>
   
-polMonitor is an interactive [Shiny](https://shiny.rstudio.com/) application for people to explore, and engage with, *known* police violence data. It is currently limited to US data on police killings. Future ambitions for the project include the incorporation of other nations' police killings data, and combining other data sources e.g. [The Stanford Open Policing Project](https://openpolicing.stanford.edu/).
+polMonitor is an interactive [Shiny](https://shiny.rstudio.com/) application (hosted [here](https://ewenme.shinyapps.io/polMonitor), via shinyapps) for people to explore, and engage with, *known* police violence data. It is currently limited to US data on police killings. Future ambitions for the project include the incorporation of other nations' police killings data, and combining other data sources e.g. [The Stanford Open Policing Project](https://openpolicing.stanford.edu/).
 
 **Data Sources**
 
