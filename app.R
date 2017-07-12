@@ -1,6 +1,7 @@
 # SETUP ---------------------------------------------------------------
 
 # pkgs
+library(DT)
 library(shiny)
 library(shinythemes)
 library(shinyjs)
@@ -139,9 +140,11 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                                                              inline = TRUE, width = "auto"))
                                         )
                                         ),
-                                        hr(),
-                                        tags$br(),
-                                        plotOutput(outputId="cumPlot", height = 200)
+                                        
+                                        conditionalPanel(condition = "input.mapType == 'dot'",
+                                                         hr(),
+                                                         tags$br(),
+                                        plotOutput(outputId="cumPlot", height = 200))
                           )
                           )
                  ),
@@ -267,7 +270,7 @@ server <- function(input, output, session) {
   output$map <- renderLeaflet({
     
     leaflet(mpv_data) %>% addProviderTiles("CartoDB.DarkMatter") %>%
-      setView(lng = mean(filtered_data()$lon), lat = mean(filtered_data()$lat),
+      setView(lng = mean(mpv_data$lon), lat = mean(mpv_data$lat),
                zoom = 3)
   })
   
@@ -284,13 +287,15 @@ server <- function(input, output, session) {
                    paste0("<b>location: </b>", filtered_data()$address),
                    paste0("<a href='", filtered_data()$`Link to news article or photo of official document`, "'>news article / photo of official doc</a>"))
     
+    proxy <- leafletProxy("map", data = filtered_data()) %>%
+      clearShapes()
+    
     if (colourBy == "none" & map_type == "dot") {
     
-    leafletProxy("map", data = filtered_data()) %>%
-      clearShapes() %>%
+      proxy %>%
       clearControls() %>%
       addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color="#DC143C", fillColor = "#DC143C",
-                 popup= ~popup, layerId=~mpv_data) %>%
+                 popup= ~popup) %>%
         setView(lng = mean(filtered_data()$lon), lat = mean(filtered_data()$lat),
                 zoom = if_else(input$state == "all", 3, 5))
       
@@ -299,8 +304,7 @@ server <- function(input, output, session) {
       colourData <- mpv_data[[colourBy]]
       pal <- colorFactor("viridis", colourData)
       
-      leafletProxy("map", data = filtered_data()) %>%
-        clearShapes() %>%
+        proxy %>%
         clearControls() %>%
         addCircles(~lon, ~lat, radius = 0.2, fillOpacity = 0.3, color=pal(colourData), 
                    fillColor = pal(colourData), popup= ~popup, layerId=~mpv_data) %>%
@@ -313,7 +317,7 @@ server <- function(input, output, session) {
     
   })
   
-  # observer for map inputs
+  # observer map inputs for choropleth
   observe( {
     
     if (input$mapType == "choropleth") {

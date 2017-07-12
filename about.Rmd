@@ -12,7 +12,7 @@ police violence data is taken from [Mapping Police Violence](https://mappingpoli
 
 first, thank you to the *Mapping Police Violence* planning team ([@samswey](https://twitter.com/samswey), [@deray](https://twitter.com/deray) and [@MsPackyetti](https://twitter.com/MsPackyetti)) for the work and dedication in making this resource open to the world, and for empowering developers to make a contribution to social justice.
 
-the [tidycensus](https://cran.r-project.org/web/packages/tidycensus/index.html), [leaflet](https://cran.r-project.org/web/packages/leaflet/leaflet.pdf) and [shinyjs](https://cran.r-project.org/web/packages/shinyjs/index.html) R packages were invaluable resources in realising this idea. the basemap is *CartoDB.DarkMatter*, designed by [Stamen](http://stamen.com/). also, the beautiful typeface you see in the app is [Work Sans (Regular)](https://github.com/weiweihuanghuang/Work-Sans), developed by [wei](https://twitter.com/w__h_). 
+the [tidycensus](https://cran.r-project.org/web/packages/tidycensus/index.html), [leaflet](https://cran.r-project.org/web/packages/leaflet/leaflet.pdf) and [shinyjs](https://cran.r-project.org/web/packages/shinyjs/index.html) R packages were invaluable resources in realising this idea. the basemap is *CartoDB.DarkMatter*, designed by [Stamen](http://stamen.com/), while the ui was hugely inspired by Joe Cheng's [SuperZIP](https://github.com/rstudio/shiny-examples/tree/master/063-superzip-example). the beautiful typeface you see in the app is [Work Sans (Regular)](https://github.com/weiweihuanghuang/Work-Sans), developed by [wei](https://twitter.com/w__h_). 
 
 **developers**
 
