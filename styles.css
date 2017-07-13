@@ -14,8 +14,8 @@ div.outer {
 
 /* Customize fonts */
 body, label, input, button, select { 
-  font-family: 'Work Sans', Regular;
-  font-weight: 300;
+  font-family: 'Work Sans', Medium;
+  font-weight: 400;
   color: white;
   background-color: black
 }
