@@ -3,9 +3,9 @@ title: polMonitor
 account: ewenme
 server: shinyapps.io
 appId: 196066
-bundleId: 903064
+bundleId: 903103
 url: https://ewenme.shinyapps.io/polMonitor/
-when: 1499979617.30107
+when: 1499981852.71966
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: example.gif|README.md|README.Rmd
