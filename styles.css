@@ -31,7 +31,7 @@ h1, h2, h3, h4 { font-weight: 400; }
   background-color: black;
   padding: 0 20px 20px 20px;
   cursor: move;
-  font-family: 'Work Sans', Regular;
+  font-family: 'Work Sans', Medium;
   font-weight: 400;
   color: white;
   /* Fade out while not hovering */
@@ -52,7 +52,7 @@ h1, h2, h3, h4 { font-weight: 400; }
   left: 10px;
   font-size: 12px;
   color: white;
-  font-family: 'Work Sans', Regular;
+  font-family: 'Work Sans', Medium;
   font-weight: 300;
 }
 
@@ -63,6 +63,6 @@ h1, h2, h3, h4 { font-weight: 400; }
 
 .leaflet-popup-content-wrapper {
   color: white;
-  font-family: 'Work Sans', Regular;
+  font-family: 'Work Sans', Medium;
   background-color: black
 }
