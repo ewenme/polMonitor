@@ -1,3 +1,7 @@
+---
+css: rmdstyles.css
+---
+
 **overview**
 
 polMonitor is an interactive tool for people to explore, and engage with, *known* police violence data. 

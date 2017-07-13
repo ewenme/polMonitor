@@ -18,7 +18,7 @@ library(extrafont)
 # LOAD ----------------------------------------------------------------
 
 # load font
-font_import(pattern = "Work", prompt = FALSE)
+# font_import(pattern = "Work", prompt = FALSE)
 
 # load census data
 censusData <- read_csv("censusData.csv")
@@ -169,7 +169,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                           hr(),
                           
                           DT::dataTableOutput("table")),
-                 tabPanel(title="about",
+                 tabPanel(title="about", style="color:white;",
                           fluidRow(
                             column(6,
                                    includeMarkdown("about.Rmd")
