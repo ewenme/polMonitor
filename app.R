@@ -18,7 +18,7 @@ library(extrafont)
 # LOAD ----------------------------------------------------------------
 
 # load font
-# font_import(pattern = "Work")
+font_import(pattern = "Work", prompt = FALSE)
 
 # load census data
 censusData <- read_csv("censusData.csv")
@@ -86,8 +86,8 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                           ),
                           # inset panel for map output options
                           absolutePanel(id="controls", class = "panel panel-default",
-                                        top = 25, right = 100, left = "auto", bottom = "auto",
-                                        draggable = TRUE, width = "350px", height = "auto",
+                                        top = "5%", right = "5%", left = "auto", bottom = "auto",
+                                        width = "20%", height = "auto",
                                         # map type
                                         radioButtons(inputId="mapType", "map type",
                                                      choices=c("dot", "choropleth"),
@@ -261,7 +261,7 @@ server <- function(input, output, session) {
         legend.text = element_text(colour = "white", size = 12, family="WorkSans-Regular"),
         axis.text = element_text(colour = "white", size = 10, family="WorkSans-Regular"),
         axis.title = element_text(colour = "white", size = 12, family="WorkSans-Regular"),
-        legend.position = "top"
+        legend.position=c(0.3,0.8)
       )
     
   })
@@ -351,7 +351,6 @@ server <- function(input, output, session) {
   leafletProxy("map", data=data) %>%
     clearControls() %>%
     clearMarkers() %>%
-    clearShapes() %>%
     addPolygons(fillOpacity = 0.7, dashArray = "3", color = "white", weight = 1.5,
                 fillColor = ~ pal(death_per_mil),
                 highlight = highlightOptions(
@@ -361,7 +360,9 @@ server <- function(input, output, session) {
                   style = list("font-weight" = "normal", padding = "3px 8px"),
                   textsize = "15px", direction = "auto")) %>%
     addLegend("bottomleft", pal = pal, values = ~ death_per_mil, title = "deaths per million residents",
-              opacity = 1, layerId="choroLegend") 
+              opacity = 1, layerId="choroLegend") %>%
+    setView(lng = mean(mpv_data$lon), lat = mean(mpv_data$lat),
+           zoom = 3)
     } else
       NULL
   

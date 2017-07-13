@@ -20,6 +20,10 @@ body, label, input, button, select {
   background-color: black
 }
 
+body {
+    color: black !important; /* RGB Decimal :150, 91, 37 */
+}
+
 h1, h2, h3, h4 { font-weight: 400; }
 
 #controls {
@@ -29,9 +33,9 @@ h1, h2, h3, h4 { font-weight: 400; }
   cursor: move;
   color: white;
   /* Fade out while not hovering */
-  opacity: 0.65;
+  opacity: 0.75;
   zoom: 0.9;
-  transition: opacity 500ms 1s;
+  transition: opacity 1s;
 }
 #controls:hover {
   /* Fade in while hovering */
