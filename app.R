@@ -13,12 +13,9 @@ library(viridis)
 library(tigris)
 library(tidycensus)
 library(lubridate)
-library(extrafont)
+
 
 # LOAD ----------------------------------------------------------------
-
-# load font
-# font_import(pattern = "Work", prompt = FALSE)
 
 # load census data
 censusData <- read_csv("censusData.csv")
@@ -87,7 +84,7 @@ ui <- navbarPage(title="polMonitor", theme = shinytheme("cosmo"), collapsible = 
                           # inset panel for map output options
                           absolutePanel(id="controls", class = "panel panel-default",
                                         top = "5%", right = "5%", left = "auto", bottom = "auto",
-                                        width = "20%", height = "auto",
+                                        width = 330, height = "auto",
                                         # map type
                                         radioButtons(inputId="mapType", "map type",
                                                      choices=c("dot", "choropleth"),

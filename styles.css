@@ -1,3 +1,13 @@
+@import url('https://fonts.googleapis.com/css?family=Work+Sans');
+
+@font-face {
+    font-family: Work Sans, sans-serif;
+}
+
+div {
+    font-family: Work Sans, sans-serif;
+}
+
 input[type="number"] {
   max-width: 80%;
 }
